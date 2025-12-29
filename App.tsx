@@ -15,6 +15,33 @@ const App: React.FC = () => {
   useEffect(() => {
     const initApp = async () => {
       try {
+        // 1. URL 파라미터 감지 (자동 로그인)
+        const params = new URLSearchParams(window.location.search);
+        const urlName = params.get('name');
+        const urlGrade = params.get('grade');
+        const urlClass = params.get('class');
+        const urlNumber = params.get('number');
+
+        if (urlName && urlGrade && urlClass && urlNumber) {
+          const verifiedUser = await db.verifyUser({
+            name: urlName,
+            grade: parseInt(urlGrade),
+            class: parseInt(urlClass),
+            number: parseInt(urlNumber),
+            role: 'student'
+          });
+
+          if (verifiedUser) {
+            // 주소창 파라미터 제거
+            window.history.replaceState({}, document.title, window.location.pathname);
+            // 로그인 처리 (계좌 초기화 및 데이터 로드 포함)
+            await handleLogin(verifiedUser);
+            setLoading(false);
+            return; // 자동 로그인 성공 시 종료
+          }
+        }
+
+        // 2. 기존 로컬스토리지 세션 확인
         const user = db.getCurrentUser();
         if (user) {
           setCurrentUser(user);
