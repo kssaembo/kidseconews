@@ -16,20 +16,6 @@ serve(async (req) => {
   try {
     const { action, payload } = await req.json()
     
-    // 1. Supabase Secrets에서 키 가져오기
-    const apiKey = (globalThis as any).Deno.env.get("GEMINI_API_KEY") || (globalThis as any).Deno.env.get("API_KEY");
-    
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY가 설정되지 않았습니다. Supabase Dashboard -> Project Settings -> Secrets에서 설정해주세요.");
-    }
-
-    // 2. @google/genai 지침에 따라 process.env.API_KEY를 강제로 설정
-    // Deno 환경에서 라이브러리가 브라우저로 오해하더라도 키가 있으면 오류가 발생하지 않습니다.
-    (globalThis as any).process = {
-      env: { API_KEY: apiKey }
-    };
-
-    // 3. 지침대로 process.env.API_KEY를 사용하여 인스턴스 생성
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const model = 'gemini-3-flash-preview';
     
@@ -86,9 +72,26 @@ ${rawNewsList}
         required: ["summary", "easy_words"]
       };
     } else if (action === 'verify') {
-      prompt = `학생이 쓴 뉴스 댓글이 기사 내용과 관련이 있는지 검사해주세요.
-      기사 요약: ${payload.articleContent.substring(0, 100)}...
-      학생 댓글: ${payload.comment}`;
+      // 복사 붙여넣기 방지, 주관적 생각 강요, 페르소나 강화가 적용된 프롬프트
+      prompt = `당신은 초등학교 경제 교육 전문가이자, 아주 꼼꼼하고 엄격한 '댓글 검수 선생님'입니다.
+학생들이 기사를 대충 읽고 베꼈는지, 아니면 자신의 생각을 정성껏 정리했는지 판별하는 것이 당신의 임무입니다.
+
+[검사 대상 데이터]
+- 관련 키워드: ${payload.keywords.join(', ')}
+- 기사 원문(일부): ${payload.articleContent.substring(0, 1000)}
+- 학생이 작성한 댓글: ${payload.comment}
+
+[선생님의 매우 엄격한 평가 기준 - 하나라도 어기면 passed: false]
+1. **절대 복사 금지**: 기사 원문에 나오는 문장을 그대로 가져오거나, 단어의 순서만 살짝 바꾼 경우(단순 요약 포함) 무조건 탈락입니다. 학생의 댓글이 기사 원문과 문장 구조가 50% 이상 유사하면 탈락시키세요.
+2. **주관적 표현 필수**: 단순히 기사 내용을 전달하는 것이 아니라, 반드시 학생 개인의 '느낌', '새롭게 알게 된 점', '신기했던 부분', 또는 '앞으로의 다짐'이 포함되어야 합니다. (~라고 생각해요, ~가 신기해요, ~를 실천해보고 싶어요, ~를 알게 되어 기뻐요 등의 주관적 술어가 반드시 필요함)
+3. **내용의 적합성**: 기사의 핵심 주제(키워드)와 상관없는 헛소리를 하거나, "ㅋㅋㅋㅋㅋㅋㅋㅋ", "글자수채우기용" 등 무의미한 나열은 탈락입니다.
+4. **성의 없는 분량**: 최소 20자 이상이어야 하며, 한 문장으로 끝나는 너무 짧은 댓글도 지양하세요.
+
+[응답 작성 요령]
+- **passed**: 모든 기준을 통과하면 true, 하나라도 부족하면 false.
+- **reason**: 
+  - 불합격 시: 학생이 상처받지 않게 다독이면서도, '무엇 때문에 탈락했는지'와 '어떻게 고쳐야 하는지'를 선생님 말투로 아주 구체적으로 적어주세요. (예: "기사 문장을 그대로 가져온 것 같아요! 우리 친구의 진짜 생각이 궁금해요. '~라고 생각해요'라는 말을 넣어서 다시 써볼까요?")
+  - 합격 시: "참 잘했어요! 경제 박사가 다 되었네요!" 같은 짧은 칭찬을 적어주세요.`;
 
       responseSchema = {
         type: Type.OBJECT,

@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
-import { User, Account, NewsAiUsage } from './types';
-import { db } from './services/storage';
-import Header from './components/Header';
-import LoginView from './views/LoginView';
-import StudentDashboard from './views/StudentDashboard';
-import TeacherDashboard from './views/TeacherDashboard';
+import { User, Account, NewsAiUsage } from './types.ts';
+import { db } from './services/storage.ts';
+import Header from './components/Header.tsx';
+import LoginView from './views/LoginView.tsx';
+import StudentDashboard from './views/StudentDashboard.tsx';
+import TeacherDashboard from './views/TeacherDashboard.tsx';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -15,40 +16,39 @@ const App: React.FC = () => {
   useEffect(() => {
     const initApp = async () => {
       try {
-        // 1. URL 파라미터 감지 (자동 로그인)
+        // 1. URL 파라미터에서 토큰 확인 (클래스뱅크 자동로그인 대응)
         const params = new URLSearchParams(window.location.search);
-        const urlName = params.get('name');
-        const urlGrade = params.get('grade');
-        const urlClass = params.get('class');
-        const urlNumber = params.get('number');
-
-        if (urlName && urlGrade && urlClass && urlNumber) {
-          const verifiedUser = await db.verifyUser({
-            name: urlName,
-            grade: parseInt(urlGrade),
-            class: parseInt(urlClass),
-            number: parseInt(urlNumber),
-            role: 'student'
-          });
-
-          if (verifiedUser) {
-            // 주소창 파라미터 제거
-            window.history.replaceState({}, document.title, window.location.pathname);
-            // 로그인 처리 (계좌 초기화 및 데이터 로드 포함)
-            await handleLogin(verifiedUser);
+        const token = params.get('token');
+        
+        if (token) {
+          const tokenUser = await db.loginWithToken(token);
+          if (tokenUser) {
+            // 학생 초기화 및 상태 업데이트
+            if (tokenUser.role === 'student') {
+              await db.ensureStudentInitialized(tokenUser);
+            }
+            setCurrentUser(tokenUser);
+            db.setCurrentUser(tokenUser);
+            await refreshData(tokenUser);
+            
+            // URL 정리 (토큰 파라미터 제거)
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.delete('token');
+            window.history.replaceState({}, '', cleanUrl.toString());
+            
             setLoading(false);
-            return; // 자동 로그인 성공 시 종료
+            return;
           }
         }
 
-        // 2. 기존 로컬스토리지 세션 확인
+        // 2. 기존 로컬스토리지 로그인 세션 확인
         const user = db.getCurrentUser();
         if (user) {
           setCurrentUser(user);
           await refreshData(user);
         }
       } catch (err) {
-        console.error("Init failed:", err);
+        console.error("초기화 오류:", err);
       } finally {
         setLoading(false);
       }
@@ -66,26 +66,23 @@ const App: React.FC = () => {
         setAccount(acc);
         setAiUsage(usage);
       } catch (err) {
-        console.error("Data refresh failed:", err);
+        console.warn("데이터 로드 실패:", err);
       }
     }
-    setLoading(false);
   };
 
   const handleLogin = async (user: User) => {
     setLoading(true);
     try {
-      // 학생인 경우 계좌/AI사용량 초기화 (최초 1회만 생성됨)
       if (user.role === 'student') {
         await db.ensureStudentInitialized(user);
       }
-      
       setCurrentUser(user);
       db.setCurrentUser(user);
       await refreshData(user);
     } catch (err: any) {
-      console.error("Login session failed:", err);
-      alert(`접속 중 오류가 발생했습니다: ${err.message}`);
+      alert(`오류가 발생했습니다: ${err.message}`);
+    } finally {
       setLoading(false);
     }
   };
@@ -98,9 +95,9 @@ const App: React.FC = () => {
   };
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center font-kids text-2xl flex-col gap-4">
+    <div className="min-h-screen flex items-center justify-center font-kids text-2xl flex-col gap-4 bg-blue-50">
       <div className="animate-bounce text-6xl">🚀</div>
-      <div>데이터를 불러오는 중...</div>
+      <div className="text-blue-600">데이터를 불러오는 중...</div>
     </div>
   );
 
@@ -109,7 +106,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen pb-10">
+    <div className="min-h-screen flex flex-col bg-blue-50/30">
       <Header 
         user={currentUser} 
         account={account} 
@@ -117,13 +114,17 @@ const App: React.FC = () => {
         onLogout={handleLogout} 
       />
       
-      <main>
+      <main className="max-w-6xl mx-auto flex-1 w-full">
         {currentUser.role === 'teacher' ? (
-          <TeacherDashboard />
+          <TeacherDashboard user={currentUser} />
         ) : (
           <StudentDashboard user={currentUser} onUpdate={() => refreshData(currentUser)} />
         )}
       </main>
+
+      <footer className="w-full py-8 text-center text-gray-400 text-xs font-medium border-t border-gray-100 mt-12 bg-white/50">
+        ⓒ 2026. Kwon's class. All rights reserved.
+      </footer>
     </div>
   );
 };
