@@ -61,6 +61,73 @@ export const db = {
     return user;
   },
 
+  // 학생 URL 파라미터 기반 자동 로그인 (클래스뱅크 학생 연동)
+  loginStudentWithParams: async (params: {
+    name?: string | null;
+    grade: number;
+    classNum: number;
+    number: number;
+    token?: string | null;
+    classCode?: string | null;
+  }): Promise<User | null> => {
+    try {
+      let teacherId: string | undefined = undefined;
+      if (params.token) {
+        const { data: acc } = await supabase
+          .from('accounts')
+          .select('userId')
+          .eq('qrToken', params.token)
+          .maybeSingle();
+        if (acc) {
+          teacherId = acc.userId;
+        }
+      }
+
+      let query = supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'student')
+        .eq('grade', params.grade)
+        .eq('class', params.classNum)
+        .eq('number', params.number);
+
+      if (teacherId) {
+        query = query.eq('teacher_id', teacherId);
+      } else if (params.classCode) {
+        query = query.eq('classCode', params.classCode);
+      }
+
+      const { data: userList, error } = await query;
+      if (error || !userList || userList.length === 0) {
+        const { data: fallbackList } = await supabase
+          .from('users')
+          .select('*')
+          .eq('role', 'student')
+          .eq('grade', params.grade)
+          .eq('class', params.classNum)
+          .eq('number', params.number);
+
+        if (!fallbackList || fallbackList.length === 0) return null;
+
+        if (params.name) {
+          const matched = fallbackList.find(u => u.name === params.name);
+          if (matched) return matched;
+        }
+        return fallbackList[0];
+      }
+
+      if (params.name) {
+        const matched = userList.find(u => u.name === params.name);
+        if (matched) return matched;
+      }
+
+      return userList[0];
+    } catch (err) {
+      console.error("Student auto login error:", err);
+      return null;
+    }
+  },
+
   // 학생 로그인을 위해 Edge Function 호출 (name 대신 password 사용)
   verifyUser: async (params: { password: string; grade: number; class: number; number: number; role: string; classCode: string }): Promise<User | null> => {
     const { data, error } = await supabase.functions.invoke('auth-student', {

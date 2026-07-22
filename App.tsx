@@ -16,32 +16,75 @@ const App: React.FC = () => {
   useEffect(() => {
     const initApp = async () => {
       try {
-        // 1. URL 파라미터에서 토큰 확인 (클래스뱅크 자동로그인 대응)
+        // 1. URL 파라미터 확인 (클래스뱅크 자동로그인 연동)
         const params = new URLSearchParams(window.location.search);
+        const nameParam = params.get('name');
+        const gradeParam = params.get('grade');
+        const classParam = params.get('class');
+        const numberParam = params.get('number');
         const token = params.get('token');
-        
+        const classCodeParam = params.get('classCode');
+
+        const isStudentUrl = Boolean(gradeParam && classParam && numberParam);
+
+        // 1-1. 학생 인적사항 파라미터가 포함된 URL 접근인 경우 (클래스뱅크 학생 접근)
+        if (isStudentUrl) {
+          const studentUser = await db.loginStudentWithParams({
+            name: nameParam,
+            grade: Number(gradeParam),
+            classNum: Number(classParam),
+            number: Number(numberParam),
+            token: token,
+            classCode: classCodeParam
+          });
+
+          if (studentUser) {
+            await db.ensureStudentInitialized(studentUser);
+            setCurrentUser(studentUser);
+            db.setCurrentUser(studentUser);
+            await refreshData(studentUser);
+          } else {
+            // 학생 파라미터로 왔으나 매칭되는 학생 계정이 없는 경우
+            // 기존 저장된 교사 세션이 뜨지 않도록 세션을 초기화함
+            setCurrentUser(null);
+            db.setCurrentUser(null);
+          }
+
+          // URL 파라미터 정리
+          const cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.delete('name');
+          cleanUrl.searchParams.delete('grade');
+          cleanUrl.searchParams.delete('class');
+          cleanUrl.searchParams.delete('number');
+          cleanUrl.searchParams.delete('token');
+          cleanUrl.searchParams.delete('classCode');
+          window.history.replaceState({}, '', cleanUrl.toString());
+
+          setLoading(false);
+          return;
+        }
+
+        // 1-2. 학생 파라미터 없이 토큰만 단독 전달된 경우 (클래스뱅크 교사/역할선택 연동)
         if (token) {
           const tokenUser = await db.loginWithToken(token);
           if (tokenUser) {
-            // 학생 초기화 및 상태 업데이트
             if (tokenUser.role === 'student') {
               await db.ensureStudentInitialized(tokenUser);
             }
             setCurrentUser(tokenUser);
             db.setCurrentUser(tokenUser);
             await refreshData(tokenUser);
-            
-            // URL 정리 (토큰 파라미터 제거)
+
             const cleanUrl = new URL(window.location.href);
             cleanUrl.searchParams.delete('token');
             window.history.replaceState({}, '', cleanUrl.toString());
-            
+
             setLoading(false);
             return;
           }
         }
 
-        // 2. 기존 로컬스토리지 로그인 세션 확인
+        // 2. URL 파라미터가 없는 일반 접근인 경우: 기존 로컬스토리지 로그인 세션 확인
         const user = db.getCurrentUser();
         if (user) {
           setCurrentUser(user);
