@@ -98,8 +98,12 @@ export const db = {
     }
   },
 
-  getArticles: async (): Promise<NewsArticle[]> => {
-    const { data, error } = await supabase.from('news_articles').select('*').order('created_at', { ascending: false });
+  getArticles: async (teacherId?: string): Promise<NewsArticle[]> => {
+    let query = supabase.from('news_articles').select('*').order('created_at', { ascending: false });
+    if (teacherId) {
+      query = query.eq('teacher_id', teacherId);
+    }
+    const { data, error } = await query;
     if (error) throw error;
     return (data || []).map(article => ({
       ...article,
@@ -122,8 +126,36 @@ export const db = {
     await supabase.from('news_articles').update({ is_approved: true }).eq('id', articleId);
   },
 
-  resetArticles: async () => {
-    await supabase.rpc('reset_approved_articles_with_comments');
+  resetArticles: async (teacherId?: string) => {
+    if (!teacherId) {
+      await supabase.rpc('reset_approved_articles_with_comments');
+      return;
+    }
+
+    // 1. Get the list of articles for this teacher
+    const { data: articles, error: err1 } = await supabase
+      .from('news_articles')
+      .select('id')
+      .eq('teacher_id', teacherId);
+    
+    if (err1) throw err1;
+    if (!articles || articles.length === 0) return;
+
+    const articleIds = articles.map(a => a.id);
+
+    // 2. Delete comments for these articles
+    const { error: err2 } = await supabase
+      .from('news_comments')
+      .delete()
+      .in('article_id', articleIds);
+    if (err2) throw err2;
+
+    // 3. Delete the articles themselves
+    const { error: err3 } = await supabase
+      .from('news_articles')
+      .delete()
+      .in('id', articleIds);
+    if (err3) throw err3;
   },
 
   deleteArticle: async (articleId: string) => {

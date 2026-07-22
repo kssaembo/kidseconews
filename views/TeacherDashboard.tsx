@@ -48,7 +48,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user }) => {
     setLoading(true);
     try {
       const [arts, comms, usrs] = await Promise.all([
-        db.getArticles(),
+        db.getArticles(user.userId),
         db.getComments(),
         db.getUsers(user.userId) // 로그인한 교사의 ID 전달
       ]);
@@ -91,7 +91,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user }) => {
         content: newsItem.content,
         url: newsItem.url || '',
         keywords: newsItem.keywords || ['경제', '금융'],
-        is_approved: true
+        is_approved: true,
+        teacher_id: user.userId
       });
       alert('승인되었습니다!');
       setRecommendedNews(prev => prev.filter(n => n.title !== newsItem.title));
@@ -113,7 +114,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user }) => {
         content: directContent,
         url: '',
         keywords: ['직접입력', '경제'],
-        is_approved: true
+        is_approved: true,
+        teacher_id: user.userId
       });
       alert('기사가 성공적으로 등록되었습니다.');
       setIsDirectUploadOpen(false);
@@ -166,7 +168,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user }) => {
 
   const confirmResetArticles = async () => {
     try {
-      await db.resetArticles();
+      await db.resetArticles(user.userId);
       alert('초기화되었습니다.');
       setResetConfirmOpen(false);
       loadData();

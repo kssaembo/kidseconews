@@ -344,6 +344,16 @@ const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, user, onBack, on
                 ⚠️ {localError}
               </div>
             )}
+            {localError && (
+              <div className="mb-4 p-4 bg-red-50 text-red-600 rounded-xl border border-red-100 text-sm font-bold animate-in fade-in slide-in-from-top-1">
+                ⚠️ {localError}
+              </div>
+            )}
+            {localError && (
+              <div className="mb-4 p-4 bg-red-50 text-red-600 rounded-xl border border-red-100 text-sm font-bold animate-in fade-in slide-in-from-top-1">
+                ⚠️ {localError}
+              </div>
+            )}
             {verificationResult && !verificationResult.passed && (
               <div className="mb-4 p-4 bg-red-50 text-red-600 rounded-xl border border-red-100 text-sm">
                 <b>보완이 필요해요:</b> {verificationResult.reason}

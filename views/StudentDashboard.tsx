@@ -17,14 +17,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onUpdate }) =
   useEffect(() => {
     const fetchArticles = async () => {
       try {
-        const data = await db.getArticles();
+        const data = await db.getArticles(user.teacher_id);
         setArticles(data.filter(a => a.is_approved));
       } finally {
         setLoading(false);
       }
     };
     fetchArticles();
-  }, []);
+  }, [user.teacher_id]);
 
   if (selectedArticle) {
     return (

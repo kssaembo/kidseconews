@@ -8,6 +8,9 @@ export interface User {
   class: number;
   number: number;
   role: UserRole;
+  teacher_id?: string;
+  teacherAlias?: string;
+  currencyUnit?: string;
 }
 
 export interface Account {
@@ -25,6 +28,7 @@ export interface NewsArticle {
   is_approved: boolean;
   created_at: string;
   keywords: string[];
+  teacher_id?: string;
 }
 
 export interface NewsComment {
