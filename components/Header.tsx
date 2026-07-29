@@ -6,7 +6,7 @@ interface HeaderProps {
   user: User;
   account?: Account;
   aiUsage?: NewsAiUsage;
-  onLogout: () => void;
+  onLogout?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ user, account, aiUsage, onLogout }) => {
@@ -52,12 +52,6 @@ const Header: React.FC<HeaderProps> = ({ user, account, aiUsage, onLogout }) => 
                 {user.name} {user.role === 'teacher' ? '교사' : '학생'}
               </span>
             </div>
-            <button 
-              onClick={onLogout}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-500 px-3 py-1 rounded text-xs md:text-sm transition-colors"
-            >
-              로그아웃
-            </button>
           </div>
         </div>
       </div>

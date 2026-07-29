@@ -154,7 +154,6 @@ const App: React.FC = () => {
         user={currentUser} 
         account={account} 
         aiUsage={aiUsage}
-        onLogout={handleLogout} 
       />
       
       <main className="max-w-6xl mx-auto flex-1 w-full">
